@@ -7,7 +7,7 @@ xPano 是一套专为双镜头 360° 全景相机（如 Insta360、DJI Osmo 360 
 
 传统全景重建往往依赖于官方软件将双鱼眼拼接为等距圆柱投影（Equirectangular Projection, ERP）全景图，再以一定的偏转角切割成数张透视切片，这在计算机视觉与摄影测量学中会引入不可逆的非线性畸变与撕裂。xPano 颠覆了这一传统，它提倡直接利用原始的双鱼眼文件进行空三解算，通过科学的相机站约束和物理参数标定锁定几何真实性，并在解算完成后利用逆向投影重映射算法，将鱼眼无缝切片为高质量的虚拟立方体贴图（Virtual Cubemap），从而完美适配 3D Gaussian Splatting (3DGS) 以及 NeRF 等下游三维重建管线。
 
-[English Documentation](README.md)
+💡 **提示**：本文档适用于已安装 Metashape 且习惯使用原生脚本工作流的用户（需根据指引手动配置环境与依赖）。如果希望避开繁琐的软件环境配置、体验免安装且一键式开箱即用的极简操作，请参阅 [GUI 版本操作文档](README.md) 。
 
 ![Workflow Overview](images/workflow_overview.png)
 
@@ -34,7 +34,7 @@ xPano 则通过逆转这一管线彻底解决了上述痛点，在对齐阶段�
 使用项目提供的 `pano_extractor.py` 脚本，自动扫描当前目录下的 `.insv` 或 `.osv` 全景原始视频流进行同步抽帧。
 
 ```bash
-python scripts/pano_extractor.py
+stand-alone/pano_extractor.py
 ```
 
 脚本在提取图像的同时，会自动为每一帧创建一个专属的子文件夹，将对应的左右两张鱼眼照片归档于此。这种收纳方式在摄影测量中被称为“相机站（Camera Station）”。双镜头全景相机的相对位姿在物理上是基本固定的，将同一时刻的左右鱼眼收纳在同一个相机站下，能帮助在后续步骤中利用极强的物理先验来引导稀疏对齐。
@@ -85,7 +85,7 @@ python scripts/pano_extractor.py
 
 ```bash
 # 在 Metashape 脚本控制台或菜单中载入执行
-scripts/align_ground_plane.py
+stand-alone/align_ground_plane.py
 ```
 
 该脚本首先会自适应扫描全局的稀疏特征点云，通过 RANSAC（随机抽样一致）算法，在海量点云中搜寻并计算出最契合的物理地面平面法线。如果用户在界面中手动选择了一部分点作为参考，脚本会优先使用这些选中点进行拟合，实现极佳的人工辅助对齐。
@@ -96,11 +96,30 @@ scripts/align_ground_plane.py
 
 ### 第五步：虚拟 Cubemap 渲染与 COLMAP 完美导出
 
-这是 xPano 工作流最核心的数据转换引擎。通过运行 `export_colmap.py` 脚本，将对齐标定好的高质量鱼眼数据集导出为无畸变、无接缝的透视相机 COLMAP 格式。
+这是 xPano 工作流最核心的数据转换引擎。通过运行 `metashape_export_colmap.py` 脚本，将对齐标定好的高质量鱼眼数据集导出为无畸变、无接缝的透视相机 COLMAP 格式。
 
 ```bash
 # 在 Metashape 中通过 Run Script 执行该文件
-scripts/export_colmap.py
+stand-alone/export_colmap.py
+```
+#### 运行前准备（内置 Python 依赖安装）
+
+由于 Metashape 运行在软件内置的独立 Python 嵌入式环境中，而非系统的全局 Python 环境。直接在普通的系统终端运行 `pip install opencv-python` 会导致脚本运行时抛出 `ModuleNotFoundError: No module named 'cv2'` 错误。
+
+在运行脚本前，请使用管理员权限打开命令提示符（cmd）或终端，运行以下对应命令将依赖库安装至 Metashape 专属环境中：
+
+* **Windows (如非默认安装路径，请自行分局实际情况修改):**
+  ```bash
+  "C:\Program Files\Agisoft\Metashape Pro\python\python.exe" -m pip install opencv-python
+  ```
+* **macOS:**
+  ```bash
+  /Applications/MetashapePro.app/Contents/MacOS/python/bin/python3 -m pip install opencv-python
+  ```
+* **Linux:**
+  ```bash
+  ./metashape-pro/python/bin/python -m pip install opencv-python
+  ```
 ```
 
 对于传统的透视相机（Frame），脚本会自动应用计算好的标定内参对其进行高质量的径向与切向畸变剔除，输出纯净的无畸变图像。
